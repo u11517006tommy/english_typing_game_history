@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>星際英打訓練基地 - 版本四 | Space Typing v4</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Noto Sans TC', 'Rajdhani', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #030014;
+      overflow-x: hidden;
+      user-select: none;
+    }
+    .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    #space-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .sci-glass {
+      background: rgba(13, 16, 38, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.67), inset 0 0 15px rgba(16, 185, 129, 0.05);
+    }
+
+    /* Laser / Landing Line Glow */
+    .defense-line {
+      box-shadow: 0 0 15px #10b981, 0 0 30px #10b981;
+    }
+
+    /* Active Meteor Glow */
+    .meteor-box {
+      box-shadow: 0 0 25px rgba(52, 211, 153, 0.8), inset 0 0 15px rgba(52, 211, 153, 0.4);
+      transition: border-color 0.15s, background-color 0.15s;
+    }
+
+    .meteor-miss {
+      animation: missPulse 0.3s ease;
+    }
+
+    @keyframes missPulse {
+      0% { transform: scale(1); border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 25px rgba(239, 68, 68, 0.8); }
+      50% { transform: scale(1.15); border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 35px rgba(239, 68, 68, 1); }
+      100% { transform: scale(1); }
+    }
+
+    /* Key Button Styling */
+    .key-btn {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      transition: all 0.1s ease;
+    }
+    .key-btn:hover {
+      border-color: rgba(52, 211, 153, 0.8);
+      box-shadow: 0 0 15px rgba(52, 211, 153, 0.4);
+    }
+    .key-btn.active {
+      background: rgba(52, 211, 153, 0.3);
+      border-color: #34d399;
+      transform: translateY(2px);
+      box-shadow: 0 0 20px #34d399;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen text-slate-100 flex flex-col justify-between relative selection:bg-emerald-500 selection:text-black">
+
+  <canvas id="space-bg"></canvas>
+
+  <!-- Ambient Glows -->
+  <div class="fixed top-1/4 left-1/3 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-600/10 rounded-full blur-[130px] pointer-events-none"></div>
+  <div class="fixed bottom-1/4 right-1/3 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-cyan-600/10 rounded-full blur-[130px] pointer-events-none"></div>
+
+  <!-- Top Header Nav -->
+  <header class="relative z-10 p-4 max-w-5xl mx-auto w-full flex items-center justify-between">
+    <a href="../index.html" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-emerald-500/40 text-emerald-300 text-xs font-orbitron hover:bg-emerald-950 transition active:scale-95">
+      <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"/></svg>
+      <span>返回首頁</span>
+    </a>
+    <h1 class="text-xl sm:text-2xl font-black font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-300 tracking-wider">
+      VERSION 4 • METEOR DEFENSE
+    </h1>
+    <div class="text-xs font-orbitron text-emerald-400/80 hidden sm:block">
+      TARGET: A S D F G H J K L ;
+    </div>
+  </header>
+
+  <!-- Main Game Container -->
+  <main class="relative z-10 max-w-4xl mx-auto w-full px-4 my-2 flex-1 flex flex-col justify-between">
+
+    <!-- Control Panel / HUD -->
+    <div class="sci-glass rounded-2xl p-4 mb-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+      <div>
+        <div class="text-[10px] font-orbitron text-slate-400 tracking-wider">ROUND PROGRESS</div>
+        <div class="text-lg font-bold font-orbitron text-emerald-300"><span id="hud-current">0</span> / 10</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-orbitron text-slate-400 tracking-wider">SCORE / HIT</div>
+        <div class="text-lg font-bold font-orbitron text-cyan-300" id="hud-score">0</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-orbitron text-slate-400 tracking-wider">MISSED / LANDED</div>
+        <div class="text-lg font-bold font-orbitron text-rose-400" id="hud-miss">0</div>
+      </div>
+      <div>
+        <div class="text-[10px] font-orbitron text-slate-400 tracking-wider">CURRENT SPEED</div>
+        <div class="text-lg font-bold font-orbitron text-amber-300" id="hud-speed">8.0s</div>
+      </div>
+    </div>
+
+    <!-- Settings Bar -->
+    <div class="sci-glass rounded-2xl p-4 mb-3 flex flex-wrap items-center justify-between gap-4 text-xs">
+      <!-- Speed Slider -->
+      <div class="flex items-center gap-3 flex-1 min-w-[220px]">
+        <label for="speed-slider" class="font-orbitron text-emerald-300 whitespace-nowrap">
+          落地時間: <span id="speed-val" class="text-white font-bold">8</span> 秒
+        </label>
+        <input type="range" id="speed-slider" min="3" max="14" value="8" step="1" 
+          class="w-full accent-emerald-400 cursor-pointer bg-slate-800 rounded-lg h-2">
+      </div>
+
+      <!-- Progressive Speed Checkbox -->
+      <label class="flex items-center gap-2 cursor-pointer text-slate-200 hover:text-emerald-300 transition whitespace-nowrap">
+        <input type="checkbox" id="accel-toggle" class="w-4 h-4 rounded accent-emerald-400 cursor-pointer">
+        <span>漸進加速 (每對3題 -1s，最快3s)</span>
+      </label>
+
+      <!-- Action Buttons -->
+      <div class="flex gap-2 w-full sm:w-auto justify-end">
+        <button id="btn-start" onclick="toggleStart()" class="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-orbitron transition active:scale-95">
+          開始回合
+        </button>
+        <button id="btn-pause" onclick="togglePause()" disabled class="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-bold font-orbitron transition disabled:opacity-50">
+          暫停
+        </button>
+      </div>
+    </div>
+
+    <!-- Game Arena Canvas / Stage -->
+    <div id="game-stage" class="relative sci-glass rounded-2xl h-80 sm:h-96 w-full overflow-hidden flex flex-col justify-between p-2">
+      
+      <!-- Pause Overlay -->
+      <div id="pause-overlay" class="hidden absolute inset-0 z-30 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center gap-3">
+        <div class="text-2xl font-orbitron font-bold text-amber-400 animate-pulse">PAUSED</div>
+        <p class="text-xs text-slate-300" id="pause-reason">遊戲已暫停，點擊繼續按鈕 resumed</p>
+        <button onclick="togglePause()" class="px-6 py-2 rounded-xl bg-emerald-500 text-slate-950 font-bold font-orbitron hover:bg-emerald-400 transition active:scale-95">
+          繼續遊戲
+        </button>
+      </div>
+
+      <!-- Start Overlay Hint -->
+      <div id="start-overlay" class="absolute inset-0 z-20 bg-slate-950/70 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+        <div class="text-3xl font-black font-orbitron text-emerald-400 mb-2">準備好開始挑戰了嗎？</div>
+        <p class="text-xs sm:text-sm text-slate-300 max-w-md mb-6 leading-relaxed">
+          每次一個字元從畫面上方往下掉落。<br>在落地前於鍵盤按下對應按鍵以消除得分！按錯不消除。
+        </p>
+        <button onclick="toggleStart()" class="px-8 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-black font-orbitron text-base shadow-lg shadow-emerald-500/30 hover:scale-105 transition active:scale-95">
+          START MISSION
+        </button>
+      </div>
+
+      <!-- Meteor Layer -->
+      <div id="meteor-area" class="relative w-full h-full">
+        <div id="meteor-box" class="hidden absolute -translate-x-1/2 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sci-glass border-2 border-emerald-400 meteor-box flex flex-col items-center justify-center">
+          <span id="meteor-char" class="text-2xl sm:text-3xl font-black font-orbitron text-white">A</span>
+        </div>
+      </div>
+
+      <!-- Defense Landing Line -->
+      <div class="w-full h-1 bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 defense-line rounded-full relative z-10 my-1"></div>
+    </div>
+
+    <!-- Interactive On-screen Virtual Keyboard for easy play testing -->
+    <div class="mt-3 sci-glass rounded-2xl p-3">
+      <div class="text-[10px] font-orbitron text-center text-slate-400 mb-2">PRACTICE TARGET KEYS (可按實體鍵盤或直接點擊畫面按鈕試玩)</div>
+      <div class="flex justify-center flex-wrap gap-1.5 sm:gap-2" id="keyboard-container">
+        <!-- Key buttons dynamically inserted or hardcoded -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Summary Modal -->
+  <div id="modal-summary" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="sci-glass max-w-md w-full rounded-3xl p-6 text-center border-2 border-emerald-400 shadow-2xl relative">
+      <div class="text-xs font-orbitron text-emerald-400 tracking-widest mb-1">MISSION COMPLETED</div>
+      <h2 class="text-3xl font-black font-orbitron text-white mb-4">回合成績總結</h2>
+
+      <div class="grid grid-cols-2 gap-3 mb-6">
+        <div class="bg-slate-900/80 rounded-2xl p-3 border border-emerald-500/30">
+          <div class="text-[10px] font-orbitron text-slate-400">總得分 (HIT)</div>
+          <div class="text-2xl font-black font-orbitron text-emerald-300" id="summary-score">0</div>
+        </div>
+        <div class="bg-slate-900/80 rounded-2xl p-3 border border-rose-500/30">
+          <div class="text-[10px] font-orbitron text-slate-400">落地未答 (MISS)</div>
+          <div class="text-2xl font-black font-orbitron text-rose-400" id="summary-miss">0</div>
+        </div>
+        <div class="bg-slate-900/80 rounded-2xl p-3 border border-cyan-500/30 col-span-2">
+          <div class="text-[10px] font-orbitron text-slate-400">命中率 (ACCURACY)</div>
+          <div class="text-3xl font-black font-orbitron text-cyan-300" id="summary-acc">0%</div>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button onclick="closeSummaryAndRestart()" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-bold font-orbitron shadow-lg hover:brightness-110 transition active:scale-95">
+          再練一回合
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="relative z-10 py-3 text-center text-slate-500 text-[10px] font-orbitron tracking-widest">
+    SPACE TYPING COMMAND • METEOR DEFENSE MODULE v4
+  </footer>
+
+  <!-- Game Logic Script -->
+  <script>
+    // Target characters for Version 4
+    const TARGET_KEYS = ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';'];
+    const TOTAL_QUESTIONS = 10;
+
+    // Game state variables
+    let isGameRunning = false;
+    let isPaused = false;
+    let currentQuestion = 0;
+    let score = 0;
+    let missCount = 0;
+    let consecutiveHits = 0;
+
+    let baseDurationSec = 8;
+    let currentDurationSec = 8;
+    let isProgressiveSpeed = false;
+
+    let activeKey = null;
+    let animationReqId = null;
+    let startTime = null;
+    let elapsedTime = 0;
+    let isKeyDownMap = {}; // key repeat guard
+
+    // DOM Elements
+    const meteorArea = document.getElementById('meteor-area');
+    const meteorBox = document.getElementById('meteor-box');
+    const meteorChar = document.getElementById('meteor-char');
+    const speedSlider = document.getElementById('speed-slider');
+    const speedVal = document.getElementById('speed-val');
+    const accelToggle = document.getElementById('accel-toggle');
+    const btnStart = document.getElementById('btn-start');
+    const btnPause = document.getElementById('btn-pause');
+    const pauseOverlay = document.getElementById('pause-overlay');
+    const startOverlay = document.getElementById('start-overlay');
+    const pauseReason = document.getElementById('pause-reason');
+
+    // Starfield animation
+    const canvas = document.getElementById('space-bg');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function initStars() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      stars = [];
+      for (let i = 0; i < 140; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.5 + 0.3,
+          color: Math.random() > 0.4 ? '#34d399' : '#ffffff',
+          alpha: Math.random(),
+          speed: Math.random() * 0.012 + 0.004
+        });
+      }
+    }
+
+    function animateStars() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        s.alpha += s.speed;
+        if (s.alpha > 1 || s.alpha < 0) s.speed = -s.speed;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+        ctx.fillStyle = s.color;
+        ctx.globalAlpha = Math.abs(s.alpha);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(animateStars);
+    }
+
+    // Init Keyboard UI
+    function renderVirtualKeyboard() {
+      const container = document.getElementById('keyboard-container');
+      container.innerHTML = '';
+      TARGET_KEYS.forEach(key => {
+        const btn = document.createElement('button');
+        btn.id = `key-btn-${key === ';' ? 'semicolon' : key}`;
+        btn.className = 'key-btn text-base sm:text-lg font-bold font-orbitron text-emerald-300 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center';
+        btn.innerText = key;
+        btn.onclick = () => handleInput(key);
+        container.appendChild(btn);
+      });
+    }
+
+    // Settings Listeners
+    speedSlider.addEventListener('input', (e) => {
+      baseDurationSec = parseInt(e.target.value, 10);
+      speedVal.innerText = baseDurationSec;
+      if (!isGameRunning) {
+        currentDurationSec = baseDurationSec;
+        updateHUD();
+      }
+    });
+
+    accelToggle.addEventListener('change', (e) => {
+      isProgressiveSpeed = e.target.checked;
+    });
+
+    function toggleStart() {
+      if (isGameRunning) {
+        // Reset/Stop
+        stopGame();
+      } else {
+        startGame();
+      }
+    }
+
+    function startGame() {
+      isGameRunning = true;
+      isPaused = false;
+      currentQuestion = 0;
+      score = 0;
+      missCount = 0;
+      consecutiveHits = 0;
+      baseDurationSec = parseInt(speedSlider.value, 10);
+      currentDurationSec = baseDurationSec;
+
+      startOverlay.classList.add('hidden');
+      pauseOverlay.classList.add('hidden');
+      btnStart.innerText = '結束回合';
+      btnStart.className = 'flex-1 sm:flex-none px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold font-orbitron transition active:scale-95';
+      btnPause.disabled = false;
+      btnPause.className = 'flex-1 sm:flex-none px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold font-orbitron transition active:scale-95';
+
+      updateHUD();
+      nextQuestion();
+    }
+
+    function stopGame() {
+      isGameRunning = false;
+      isPaused = false;
+      if (animationReqId) cancelAnimationFrame(animationReqId);
+      meteorBox.classList.add('hidden');
+
+      btnStart.innerText = '開始回合';
+      btnStart.className = 'flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-orbitron transition active:scale-95';
+      btnPause.disabled = true;
+      btnPause.innerText = '暫停';
+      btnPause.className = 'flex-1 sm:flex-none px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-bold font-orbitron transition disabled:opacity-50';
+      startOverlay.classList.remove('hidden');
+      pauseOverlay.classList.add('hidden');
+    }
+
+    function nextQuestion() {
+      if (currentQuestion >= TOTAL_QUESTIONS) {
+        endRound();
+        return;
+      }
+
+      currentQuestion++;
+      // Pick random character
+      const randIdx = Math.floor(Math.random() * TARGET_KEYS.length);
+      activeKey = TARGET_KEYS[randIdx];
+
+      meteorChar.innerText = activeKey;
+      meteorBox.classList.remove('hidden', 'meteor-miss');
+
+      // Random Horizontal position between 10% and 90%
+      const randomX = Math.floor(Math.random() * 80) + 10;
+      meteorBox.style.left = `${randomX}%`;
+      meteorBox.style.top = '0%';
+
+      startTime = null;
+      elapsedTime = 0;
+
+      updateHUD();
+      runFallAnimation();
+    }
+
+    function runFallAnimation() {
+      if (!isGameRunning || isPaused) return;
+
+      const step = (timestamp) => {
+        if (!startTime) startTime = timestamp - elapsedTime;
+        elapsedTime = timestamp - startTime;
+
+        const maxH = meteorArea.clientHeight - meteorBox.clientHeight;
+        const progress = elapsedTime / (currentDurationSec * 1000);
+
+        if (progress >= 1) {
+          // Reached bottom - Missed!
+          meteorBox.style.top = `${maxH}px`;
+          handleMiss();
+          return;
+        }
+
+        meteorBox.style.top = `${progress * maxH}px`;
+        animationReqId = requestAnimationFrame(step);
+      };
+
+      animationReqId = requestAnimationFrame(step);
+    }
+
+    function handleMiss() {
+      missCount++;
+      consecutiveHits = 0;
+      meteorBox.classList.add('meteor-miss');
+      updateHUD();
+
+      setTimeout(() => {
+        nextQuestion();
+      }, 300);
+    }
+
+    function handleHit() {
+      score++;
+      consecutiveHits++;
+
+      // Progressive speed check: every 3 hits reduce 1s down to min 3s
+      if (isProgressiveSpeed && consecutiveHits % 3 === 0) {
+        currentDurationSec = Math.max(3, currentDurationSec - 1);
+      }
+
+      if (animationReqId) cancelAnimationFrame(animationReqId);
+      meteorBox.classList.add('hidden');
+      updateHUD();
+
+      nextQuestion();
+    }
+
+    // Input Processor
+    function handleInput(inputChar) {
+      if (!isGameRunning || isPaused || !activeKey) return;
+
+      const keyUpper = inputChar.toUpperCase();
+      
+      // Visual feedback on virtual keyboard
+      const btnId = `key-btn-${keyUpper === ';' ? 'semicolon' : keyUpper}`;
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        btn.classList.add('active');
+        setTimeout(() => btn.classList.remove('active'), 150);
+      }
+
+      if (keyUpper === activeKey) {
+        handleHit();
+      } else {
+        // Wrong key - do not clear, give visual pulse
+        meteorBox.classList.remove('meteor-miss');
+        void meteorBox.offsetWidth; // trigger reflow
+        meteorBox.classList.add('meteor-miss');
+      }
+    }
+
+    // Keydown Listener with Key-repeat protection
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat || isKeyDownMap[e.code]) return; // prevent continuous scoring when long pressing
+      isKeyDownMap[e.code] = true;
+
+      let key = e.key.toUpperCase();
+      if (key === ';') key = ';';
+
+      if (TARGET_KEYS.includes(key)) {
+        handleInput(key);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      isKeyDownMap[e.code] = false;
+    });
+
+    // Pause / Resume Logic
+    function togglePause() {
+      if (!isGameRunning) return;
+
+      if (isPaused) {
+        // Resume
+        isPaused = false;
+        pauseOverlay.classList.add('hidden');
+        btnPause.innerText = '暫停';
+        runFallAnimation();
+      } else {
+        // Pause
+        isPaused = true;
+        if (animationReqId) cancelAnimationFrame(animationReqId);
+        pauseReason.innerText = '遊戲已暫停，點擊繼續按鈕 resumed';
+        pauseOverlay.classList.remove('hidden');
+        btnPause.innerText = '繼續';
+      }
+    }
+
+    // Auto Pause on Blur (leaving window/tab)
+    window.addEventListener('blur', () => {
+      if (isGameRunning && !isPaused) {
+        isPaused = true;
+        if (animationReqId) cancelAnimationFrame(animationReqId);
+        pauseReason.innerText = '已離開遊戲視窗，畫面自動暫停';
+        pauseOverlay.classList.remove('hidden');
+        btnPause.innerText = '繼續';
+      }
+    });
+
+    function updateHUD() {
+      document.getElementById('hud-current').innerText = currentQuestion;
+      document.getElementById('hud-score').innerText = score;
+      document.getElementById('hud-miss').innerText = missCount;
+      document.getElementById('hud-speed').innerText = `${currentDurationSec.toFixed(1)}s`;
+    }
+
+    function endRound() {
+      stopGame();
+      const acc = Math.round((score / TOTAL_QUESTIONS) * 100);
+      document.getElementById('summary-score').innerText = score;
+      document.getElementById('summary-miss').innerText = missCount;
+      document.getElementById('summary-acc').innerText = `${acc}%`;
+      document.getElementById('modal-summary').classList.remove('hidden');
+    }
+
+    function closeSummaryAndRestart() {
+      document.getElementById('modal-summary').classList.add('hidden');
+      startGame();
+    }
+
+    // Window Resize & Onload
+    window.addEventListener('resize', () => {
+      initStars();
+    });
+
+    window.onload = () => {
+      initStars();
+      animateStars();
+      renderVirtualKeyboard();
+    };
+  </script>
+</body>
+</html>

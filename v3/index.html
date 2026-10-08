@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>星際英打模擬器 V3 | Space Typing Station V3</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Noto Sans TC', 'Rajdhani', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #030014;
+      overflow-x: hidden;
+    }
+    .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* Starfield Background Canvas */
+    #space-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Sci-Fi Glassmorphism Card Style */
+    .sci-card {
+      background: rgba(13, 16, 38, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(192, 132, 252, 0.3);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.67),
+                  inset 0 0 15px rgba(168, 85, 247, 0.08);
+    }
+
+    /* HUD Corner Accents */
+    .hud-corner {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-color: #c084fc;
+    }
+    .hud-corner-tl { top: -1px; left: -1px; border-top: 2px solid; border-left: 2px solid; }
+    .hud-corner-tr { top: -1px; right: -1px; border-top: 2px solid; border-right: 2px solid; }
+    .hud-corner-bl { bottom: -1px; left: -1px; border-bottom: 2px solid; border-left: 2px solid; }
+    .hud-corner-br { bottom: -1px; right: -1px; border-bottom: 2px solid; border-right: 2px solid; }
+
+    /* Key Styling */
+    .key-cap {
+      background: linear-gradient(180deg, rgba(30, 27, 75, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      color: #94a3b8;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    /* Target Zone Highlight (A, S, D, F base row) */
+    .key-cap.home-key {
+      border-color: rgba(192, 132, 252, 0.4);
+      color: #e2e8f0;
+    }
+
+    /* Active Target Key Glowing Animation */
+    .key-cap.is-target {
+      background: linear-gradient(180deg, #a855f7 0%, #7e22ce 100%) !important;
+      border-color: #f0abfc !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.9), inset 0 0 10px rgba(255, 255, 255, 0.5) !important;
+      transform: translateY(-2px) scale(1.06);
+      animation: pulseGlow 1.2s infinite alternate;
+    }
+
+    /* Physical Key Pressed Visual State */
+    .key-cap.is-pressed {
+      transform: translateY(2px) scale(0.96) !important;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,240,255,0.4) !important;
+      border-color: #00f0ff !important;
+      color: #00f0ff !important;
+    }
+
+    @keyframes pulseGlow {
+      0% {
+        box-shadow: 0 0 15px rgba(168, 85, 247, 0.7), inset 0 0 5px rgba(255, 255, 255, 0.4);
+      }
+      100% {
+        box-shadow: 0 0 35px rgba(236, 72, 153, 0.9), inset 0 0 15px rgba(255, 255, 255, 0.8);
+      }
+    }
+
+    /* Target Letter Glow Display */
+    .target-display-glow {
+      text-shadow: 0 0 25px rgba(168, 85, 247, 0.8), 0 0 50px rgba(236, 72, 153, 0.5);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen text-slate-100 flex flex-col justify-between relative selection:bg-purple-500 selection:text-black">
+
+  <canvas id="space-bg"></canvas>
+
+  <div class="fixed top-1/4 left-1/3 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-600/15 rounded-full blur-[140px] pointer-events-none"></div>
+  <div class="fixed bottom-1/4 right-1/3 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-pink-600/15 rounded-full blur-[140px] pointer-events-none"></div>
+
+  <!-- Header Section -->
+  <header class="pt-8 pb-4 text-center px-4 relative z-10">
+    <!-- Return Link -->
+    <div class="max-w-4xl mx-auto flex justify-between items-center mb-4">
+      <a href="../index.html" onclick="navigateHome(event)"
+         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-purple-500/30 text-purple-300 hover:text-white hover:border-purple-400 text-xs font-orbitron transition duration-200 shadow-lg active:scale-95">
+        <svg class="w-4 h-4 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        <span>返回首頁 (HUB)</span>
+      </a>
+
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs tracking-widest font-orbitron">
+        <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+        SECTOR 03 • GAMMA DEEP SPACE
+      </div>
+    </div>
+
+    <h1 class="text-3xl sm:text-5xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-pink-200 to-indigo-300 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]">
+      英打訓練模擬器 V3
+    </h1>
+    <p class="text-slate-400 mt-2 text-xs sm:text-sm font-medium tracking-wide">
+      定位鍵 (A, S, D, F) 基礎反應度重力演練
+    </p>
+  </header>
+
+  <!-- Main Game Dashboard -->
+  <main class="max-w-4xl mx-auto px-4 w-full my-auto py-4 relative z-10">
+    <div class="sci-card rounded-3xl p-6 sm:p-10 relative">
+      <div class="hud-corner hud-corner-tl"></div>
+      <div class="hud-corner hud-corner-tr"></div>
+      <div class="hud-corner hud-corner-bl"></div>
+      <div class="hud-corner hud-corner-br"></div>
+
+      <!-- Stats Bar & Target Prompt -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center mb-8 pb-6 border-b border-purple-500/20">
+        
+        <!-- Score Board -->
+        <div class="bg-slate-950/80 rounded-2xl p-4 border border-purple-500/20 text-center">
+          <span class="text-xs font-orbitron text-purple-400/80 tracking-widest block mb-1">SCORE / 目前得分</span>
+          <span id="score-display" class="text-4xl font-black font-orbitron text-cyan-300 drop-shadow-[0_0_10px_rgba(0,240,255,0.5)]">0</span>
+        </div>
+
+        <!-- Current Target Prompt -->
+        <div class="bg-slate-950/90 rounded-2xl p-6 border border-purple-500/40 text-center flex flex-col items-center justify-center relative overflow-hidden group">
+          <span class="text-xs font-orbitron text-purple-300/80 tracking-widest block mb-1">TARGET KEY / 目標字母</span>
+          <div id="target-letter" class="text-6xl sm:text-7xl font-black font-orbitron text-purple-300 target-display-glow transition-all duration-200 min-h-[72px] flex items-center justify-center">
+            -
+          </div>
+        </div>
+
+        <!-- Game Status -->
+        <div class="bg-slate-950/80 rounded-2xl p-4 border border-purple-500/20 text-center flex flex-col justify-center">
+          <span class="text-xs font-orbitron text-purple-400/80 tracking-widest block mb-1">STATUS / 模擬器狀態</span>
+          <span id="status-display" class="text-lg font-bold font-orbitron text-slate-400">
+            等待開始
+          </span>
+        </div>
+
+      </div>
+
+      <!-- Visual CSS Keyboard -->
+      <div class="space-y-2 mb-8 max-w-2xl mx-auto">
+        <!-- Row 1: QWERTY -->
+        <div class="flex justify-center gap-1.5 sm:gap-2">
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="Q">Q</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="W">W</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="E">E</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="R">R</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="T">T</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="Y">Y</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="U">U</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="I">I</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="O">O</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="P">P</div>
+        </div>
+
+        <!-- Row 2: ASDFGHJKL (Home Row Practice Zone) -->
+        <div class="flex justify-center gap-1.5 sm:gap-2">
+          <div class="key-cap home-key w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="A">A</div>
+          <div class="key-cap home-key w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="S">S</div>
+          <div class="key-cap home-key w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="D">D</div>
+          <div class="key-cap home-key w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="F">F</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="G">G</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="H">H</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="J">J</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="K">K</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="L">L</div>
+        </div>
+
+        <!-- Row 3: ZXCVBNM -->
+        <div class="flex justify-center gap-1.5 sm:gap-2">
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="Z">Z</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="X">X</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="C">C</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="V">V</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="B">B</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="N">N</div>
+          <div class="key-cap w-8 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold font-orbitron" data-key="M">M</div>
+        </div>
+      </div>
+
+      <!-- Control Action Buttons -->
+      <div class="flex flex-wrap justify-center gap-4 pt-4 border-t border-purple-500/20">
+        <button id="btn-start" onclick="startPractice()" 
+                class="px-8 py-3.5 rounded-xl font-orbitron font-bold text-sm tracking-wider text-slate-950 bg-gradient-to-r from-purple-400 to-pink-300 hover:from-purple-300 hover:to-pink-200 transition duration-200 shadow-lg shadow-purple-500/30 active:scale-95 cursor-pointer flex items-center gap-2">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M4 4l12 6-12 6V4z"/></svg>
+          <span id="btn-start-text">開始練習</span>
+        </button>
+
+        <button id="btn-stop" onclick="stopPractice()" disabled
+                class="px-8 py-3.5 rounded-xl font-orbitron font-bold text-sm tracking-wider text-slate-400 bg-slate-900 border border-slate-700 transition duration-200 opacity-50 cursor-not-allowed flex items-center gap-2">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5 5h10v10H5V5z"/></svg>
+          <span>停止練習</span>
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="py-6 text-center text-slate-500 text-xs font-orbitron tracking-widest relative z-10">
+    <p>© SPACE TYPING COMMAND • V3 SYSTEM ACTIVE</p>
+  </footer>
+
+  <script>
+    const TARGET_KEYS = ['A', 'S', 'D', 'F'];
+    let isPlaying = false;
+    let currentScore = 0;
+    let currentTargetKey = null;
+
+    const scoreDisplay = document.getElementById('score-display');
+    const targetDisplay = document.getElementById('target-letter');
+    const statusDisplay = document.getElementById('status-display');
+    const btnStart = document.getElementById('btn-start');
+    const btnStartText = document.getElementById('btn-start-text');
+    const btnStop = document.getElementById('btn-stop');
+
+    const canvas = document.getElementById('space-bg');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+    const numStars = 140;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initStars();
+    }
+
+    function initStars() {
+      stars = [];
+      for (let i = 0; i < numStars; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.5 + 0.3,
+          color: Math.random() > 0.4 ? '#c084fc' : (Math.random() > 0.5 ? '#ffffff' : '#00f0ff'),
+          alpha: Math.random(),
+          speed: Math.random() * 0.012 + 0.004
+        });
+      }
+    }
+
+    function animateStars() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(star => {
+        star.alpha += star.speed;
+        if (star.alpha > 1 || star.alpha < 0) {
+          star.speed = -star.speed;
+        }
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+        ctx.fillStyle = star.color;
+        ctx.globalAlpha = Math.abs(star.alpha);
+        ctx.shadowBlur = star.radius * 4;
+        ctx.shadowColor = star.color;
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(animateStars);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    function startPractice() {
+      isPlaying = true;
+      currentScore = 0;
+      scoreDisplay.innerText = currentScore;
+      
+      statusDisplay.innerText = '練習進行中';
+      statusDisplay.className = 'text-lg font-bold font-orbitron text-purple-400 animate-pulse';
+
+      btnStartText.innerText = '重新開始';
+      
+      btnStop.disabled = false;
+      btnStop.classList.remove('opacity-50', 'cursor-not-allowed', 'text-slate-400', 'bg-slate-900', 'border-slate-700');
+      btnStop.classList.add('hover:bg-rose-950/80', 'hover:border-rose-500/60', 'hover:text-rose-300', 'text-slate-200', 'border-rose-500/30', 'cursor-pointer');
+
+      pickNextKey();
+    }
+
+    function stopPractice() {
+      isPlaying = false;
+      currentTargetKey = null;
+
+      targetDisplay.innerText = '-';
+      targetDisplay.className = 'text-6xl sm:text-7xl font-black font-orbitron text-slate-600';
+
+      statusDisplay.innerText = '練習已停止';
+      statusDisplay.className = 'text-lg font-bold font-orbitron text-slate-400';
+
+      btnStartText.innerText = '開始練習';
+
+      btnStop.disabled = true;
+      btnStop.classList.add('opacity-50', 'cursor-not-allowed', 'text-slate-400', 'bg-slate-900', 'border-slate-700');
+      btnStop.classList.remove('hover:bg-rose-950/80', 'hover:border-rose-500/60', 'hover:text-rose-300', 'text-slate-200', 'border-rose-500/30', 'cursor-pointer');
+
+      clearTargetKeyGlow();
+    }
+
+    function pickNextKey() {
+      // Pick randomly from A, S, D, F
+      const randomIndex = Math.floor(Math.random() * TARGET_KEYS.length);
+      currentTargetKey = TARGET_KEYS[randomIndex];
+
+      // Update Target Display
+      targetDisplay.innerText = currentTargetKey;
+      targetDisplay.className = 'text-6xl sm:text-7xl font-black font-orbitron text-purple-300 target-display-glow scale-110 transition-transform duration-150';
+      setTimeout(() => targetDisplay.classList.remove('scale-110'), 150);
+
+      // Highlight key on visual CSS keyboard
+      highlightTargetKey(currentTargetKey);
+    }
+
+    function highlightTargetKey(key) {
+      clearTargetKeyGlow();
+      const keyEl = document.querySelector(`.key-cap[data-key="${key}"]`);
+      if (keyEl) {
+        keyEl.classList.add('is-target');
+      }
+    }
+
+    function clearTargetKeyGlow() {
+      document.querySelectorAll('.key-cap').forEach(el => {
+        el.classList.remove('is-target');
+      });
+    }
+
+    function navigateHome(event) {
+      // 1. 若從首頁點擊過來，優先使用瀏覽器歷史紀錄返回
+      if (document.referrer && (document.referrer.includes('index.html') || document.referrer.endsWith('/'))) {
+        event.preventDefault();
+        window.history.back();
+        return;
+      }
+      
+      // 2. 若無歷史紀錄，根據當前網址路徑自動相容相對路徑
+      event.preventDefault();
+      const currentPath = window.location.pathname;
+      if (currentPath.includes('/v3/')) {
+        window.location.href = '../index.html';
+      } else {
+        window.location.href = './index.html';
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      // 1. Guard against key repeat (long press continuous scoring)
+      if (e.repeat) return;
+
+      const pressedKey = e.key.toUpperCase();
+      
+      // Visual feedback for pressed key on CSS keyboard
+      const keyEl = document.querySelector(`.key-cap[data-key="${pressedKey}"]`);
+      if (keyEl) {
+        keyEl.classList.add('is-pressed');
+      }
+
+      // 2. Only process scoring when practice is active
+      if (!isPlaying) return;
+
+      if (pressedKey === currentTargetKey) {
+        // Hit: Add point & change question
+        currentScore++;
+        scoreDisplay.innerText = currentScore;
+        pickNextKey();
+      } else if (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'].includes(pressedKey)) {
+        // Miss: Retain question without score addition
+        targetDisplay.classList.add('text-rose-400');
+        setTimeout(() => targetDisplay.classList.remove('text-rose-400'), 200);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const releasedKey = e.key.toUpperCase();
+      const keyEl = document.querySelector(`.key-cap[data-key="${releasedKey}"]`);
+      if (keyEl) {
+        keyEl.classList.remove('is-pressed');
+      }
+    });
+
+    window.onload = function() {
+      resizeCanvas();
+      animateStars();
+    };
+  </script>
+</body>
+</html>
